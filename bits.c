@@ -30,7 +30,7 @@ int bitAnd(int x, int y) {
  *   Difficulty: 1
  */
 int bitXor(int x, int y) {
-    return ~(~(x & ~y) & ~(~x & y));
+    return ~(~x & ~y) & ~(x & y);
 }
 
 /*
@@ -163,6 +163,9 @@ int leftBitCount(int x) {
     shift = all1 << 1;
     cnt  += shift;  x <<= shift;
 
+    all1  = !(~(x >> 31));
+    cnt += all1;  x <<= all1;
+
     // 最高位
     all1  = !(~(x >> 31));
     cnt  += all1;
@@ -180,29 +183,29 @@ int leftBitCount(int x) {
  */
 unsigned float_i2f(int x) {
     if (x == 0) return 0;
-
-    unsigned sign = (unsigned)x & 0x80000000u;
-    unsigned a = (x < 0) ? (unsigned)(-x) : (unsigned)x;
+    unsigned a = x;
+    unsigned sign = a & 0x80000000u;
     int e = 31;
-
-    // 找到绝对值里最高位那个 1，把它挪到第 31 位
+    if (a & 0x80000000u) a = ~a + 1;
     while (!(a & 0x80000000u)) {
         a <<= 1;
         e--;
     }
-    unsigned exp  = e + 127;                       // 指数加偏移量 127
-    unsigned frac = (a >> 8) & 0x7FFFFFu;          // 取低 23 位当尾数
-
+    unsigned exp = e + 127;
+    unsigned frac = (a >> 8) & 0x7FFFFFu;
     unsigned rem = a & 0xFFu;
-    if (rem > 0x80u || (rem == 0x80u && (frac & 1u))) {
+    int do_round = 0;
+    if (rem > 0x80u) do_round = 1;
+    if (rem == 0x80u) {
+        if (frac & 1u) do_round = 1;
+    }
+    if (do_round) {
         frac++;
-        if (frac >> 23) {   // 尾数溢出，进位到指数
-            frac = 0;
-            exp++;
-        }
+        if (frac >> 23) { frac = 0; exp++; }
     }
     return sign | (exp << 23) | frac;
 }
+
 
 /*
  * floatScale2 - Return bit-level equivalent of expression 2*f for
@@ -259,7 +262,7 @@ int float64_f2i(unsigned uf1, unsigned uf2) {
     }
 
     if (s) result = -result;            // 负数取回去
-    return (int)result;
+    return result;
 }
 
 /*
@@ -279,8 +282,7 @@ unsigned floatPower2(int x) {
     if (x > 127)    return 0x7F800000u;   
     if (x < -149)   return 0;            
     if (x >= -126) {
-        return (unsigned)(x + 127) << 23; 
-
-    return 1u << (x + 149);             
+        return (x + 127) << 23; 
     }
+    return 1u << (x + 149);             
 }
